@@ -13,27 +13,33 @@
 //      shared texture is ready, so their Start()/Open() never races the driver.
 //   4. Assign the driver + the 4 slots below, including each slot's quadrant
 //      and its OWN material instance (not a shared material asset).
-public class SharedAtlasVologramGroup : UnityEngine.MonoBehaviour
+
+using System;
+using System.Collections;
+using UnityEngine;
+using Volograms;
+
+public class SharedAtlasVologramGroup : MonoBehaviour
 {
-    [System.Serializable]
+    public enum Quadrant { TopLeft, TopRight, BottomLeft, BottomRight }
+
+    [Serializable]
     public class Slot
     {
         public string label = "vologram";
         public GameObject vologramObject;   // starts disabled in the scene
-        public Volograms.VolPlayer player;  // on vologramObject
-        public UnityEngine.Material material; // instance on vologramObject's renderer
+        public VolPlayer player;            // on vologramObject
+        public Material material;           // instance on vologramObject's renderer
         public Quadrant quadrant;
     }
-
-    public enum Quadrant { TopLeft, TopRight, BottomLeft, BottomRight }
 
     public VolAtlasVideoDriver driver;
     public Slot[] slots = new Slot[4];
 
-    private System.Collections.IEnumerator Start()
+    private IEnumerator Start()
     {
         // Wait until the driver has opened the atlas video and created its texture.
-        yield return new UnityEngine.WaitUntil(() => driver != null && driver.IsReady);
+        yield return new WaitUntil(() => driver != null && driver.IsReady);
 
         foreach (var slot in slots)
         {
@@ -54,16 +60,16 @@ public class SharedAtlasVologramGroup : UnityEngine.MonoBehaviour
         }
     }
 
-    private static void ApplyQuadrant(UnityEngine.Material material, Quadrant quadrant)
+    private static void ApplyQuadrant(Material material, Quadrant quadrant)
     {
-        UnityEngine.Vector2 scale = new UnityEngine.Vector2(0.5f, 0.5f);
-        UnityEngine.Vector2 offset = quadrant switch
+        Vector2 scale = new Vector2(0.5f, 0.5f);
+        Vector2 offset = quadrant switch
         {
-            Quadrant.TopLeft => new UnityEngine.Vector2(0f, 0.5f),
-            Quadrant.TopRight => new UnityEngine.Vector2(0.5f, 0.5f),
-            Quadrant.BottomLeft => new UnityEngine.Vector2(0f, 0f),
-            Quadrant.BottomRight => new UnityEngine.Vector2(0.5f, 0f),
-            _ => UnityEngine.Vector2.zero
+            Quadrant.TopLeft => new Vector2(0f, 0.5f),
+            Quadrant.TopRight => new Vector2(0.5f, 0.5f),
+            Quadrant.BottomLeft => new Vector2(0f, 0f),
+            Quadrant.BottomRight => new Vector2(0.5f, 0f),
+            _ => Vector2.zero
         };
         material.mainTextureScale = scale;
         material.mainTextureOffset = offset;
