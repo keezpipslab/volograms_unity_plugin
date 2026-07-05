@@ -236,7 +236,7 @@ Geom: Enables logging of geometry-related native code"
 
             }
             EditorGUILayout.Separator();
-            _sharedAtlasFoldout = EditorGUILayout.Foldout(_sharedAtlasFoldout, "Shared Atlas Mode", EditorStyles.foldout);
+            _sharedAtlasFoldout = EditorGUILayout.Foldout(_sharedAtlasFoldout, "Shared Atlas Mode / Streaming Extraction", EditorStyles.foldout);
             if (_sharedAtlasFoldout)
             {
                 EditorGUI.indentLevel++;
@@ -249,6 +249,16 @@ Geom: Enables logging of geometry-related native code"
                 {
                     EditorGUILayout.HelpBox("Shared Video Texture is assigned automatically at runtime by SharedAtlasVologramGroup. Leave it empty here.", MessageType.Info);
                 }
+
+                EditorGUILayout.Separator();
+                _target.extractor = EditorGUILayout.ObjectField(
+                    "Streaming Assets Extractor",
+                    _target.extractor,
+                    typeof(VolStreamingAssetsExtractor),
+                    true) as VolStreamingAssetsExtractor;
+                EditorGUILayout.HelpBox(
+                    "Optional. If assigned, this player waits for the extractor to finish copying files to persistentDataPath before opening -- required on Android/Quest when volFolderPathType/volFilePathType point at files under StreamingAssets. Leave empty on platforms where those paths already point at a real, directly-readable folder (e.g. Editor/PC/Mac with Path Type = Assets).",
+                    MessageType.Info);
                 EditorGUI.indentLevel--;
             }
 

@@ -23,6 +23,10 @@ public class VolAtlasVideoDriver : MonoBehaviour
     public VolEnums.PathType atlasVideoPathType;
     public string atlasVideoFile;
 
+    [Header("Streaming Assets Extraction (optional)")]
+    [Tooltip("If assigned, opening waits until this extractor has finished copying files to persistentDataPath. Leave null if you're not using extraction (e.g. reading directly from an already-real folder).")]
+    public VolStreamingAssetsExtractor extractor;
+
     [Header("Playback")]
     public bool isLooping = true;
     public bool audioOn = true;
@@ -44,13 +48,22 @@ public class VolAtlasVideoDriver : MonoBehaviour
     void Awake()
     {
         _ctx = new VolPluginInterface.VolNativeContext();
+        StartCoroutine(OpenWhenReady());
+    }
+
+    private System.Collections.IEnumerator OpenWhenReady()
+    {
+        if (extractor != null)
+        {
+            yield return new WaitUntil(() => extractor.IsDone);
+        }
 
         string fullPath = atlasVideoPathType.ResolvePath(atlasVideoFile);
         bool opened = _ctx.OpenVideo(fullPath);
         if (!opened)
         {
             Debug.LogError("[VolAtlasVideoDriver] Failed to open atlas video: " + fullPath);
-            return;
+            yield break;
         }
 
         int width = _ctx.GetVideoWidth();

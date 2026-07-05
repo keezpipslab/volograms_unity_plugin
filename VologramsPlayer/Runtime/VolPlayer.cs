@@ -7,6 +7,7 @@
 // <version>1.2.0</version>
 // <summary>Controls for vologram playback</summary>
 
+using Codice.Utils;
 using System;
 using System.Collections;
 using System.IO;
@@ -33,6 +34,10 @@ namespace Volograms
         public bool useSharedVideoTexture = false;
         [Tooltip("Shared decoded atlas texture, assigned externally when useSharedVideoTexture is true.")]
         public Texture2D sharedVideoTexture;
+
+        [Header("Streaming Assets Extraction (optional)")]
+        [Tooltip("If assigned, opening waits until this extractor has finished copying files to persistentDataPath. Required on Android/Quest when your source files live under StreamingAssets; leave null on platforms where volFolderPathType/volFilePathType already point at a real, directly-readable folder.")]
+        public VolStreamingAssetsExtractor extractor;
 
         // Private streaming state
         private bool _isStreaming = false;
@@ -402,6 +407,11 @@ namespace Volograms
         private IEnumerator OpenVideoSequence(string volVideoTexture, string volFolder, System.Action<string> onError)
         {
             bool geomOpened = false;
+
+            if (extractor != null)
+            {
+                yield return new WaitUntil(() => extractor.IsDone);
+            }
 
             // Follower path: skip our own video/audio decode entirely, and just open
             // this object's own geometry against the externally-supplied atlas texture.
