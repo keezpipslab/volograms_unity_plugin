@@ -21,6 +21,7 @@ namespace Volograms
         private bool _pathsFoldout = true;
         private bool _playbackFoldout = true;
         private bool _renderingFoldout;
+        private bool _sharedAtlasFoldout = true;
 
         private const string OpenVolFolderFileCacheId = "VolPlayer_Editor_VolFolderFileOpenCache";
         private const string OpenVideoFileCacheId = "VolPlayer_Editor_VideoFileOpenCache";
@@ -234,6 +235,23 @@ Geom: Enables logging of geometry-related native code"
                 EditorGUI.indentLevel--;
 
             }
+            EditorGUILayout.Separator();
+            _sharedAtlasFoldout = EditorGUILayout.Foldout(_sharedAtlasFoldout, "Shared Atlas Mode", EditorStyles.foldout);
+            if (_sharedAtlasFoldout)
+            {
+                EditorGUI.indentLevel++;
+                _target.useSharedVideoTexture = EditorGUILayout.Toggle("Use Shared Video Texture", _target.useSharedVideoTexture);
+                using (new EditorGUI.DisabledScope(true))
+                {
+                    EditorGUILayout.ObjectField("Shared Video Texture", _target.sharedVideoTexture, typeof(Texture2D), false);
+                }
+                if (_target.useSharedVideoTexture)
+                {
+                    EditorGUILayout.HelpBox("Shared Video Texture is assigned automatically at runtime by SharedAtlasVologramGroup. Leave it empty here.", MessageType.Info);
+                }
+                EditorGUI.indentLevel--;
+            }
+
             EditorGUILayout.Separator();
             _debugFoldout = EditorGUILayout.Foldout(_debugFoldout, "Debug Logging Options", EditorStyles.foldoutHeader);
             if (_debugFoldout)
