@@ -124,7 +124,7 @@ namespace Volograms
             _meshFilter.mesh = new Mesh();
         }
 #endif
-            if (volFormat == VolEnums.VolFormat.Video)
+            if (volFormat == VolEnums.VolFormat.Video && !useSharedVideoTexture)
             {
                 if (!TryGetComponent<VideoPlayer>(out _audioPlayerVideo))
                 {
