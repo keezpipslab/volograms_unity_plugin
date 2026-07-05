@@ -29,6 +29,12 @@ namespace Volograms
         [Tooltip("File: Stream to disk (mobile-friendly). Buffer: Stream to memory (faster seeking).")]
         public VolEnums.StreamingMode streamingMode;
 
+        [Header("Shared Atlas Mode (VolFormat.Video only)")]
+        [Tooltip("If true, this player skips its own video decode entirely and reads a texture supplied by a VolAtlasVideoDriver instead. Set this (and sharedVideoTexture) BEFORE this component's Start() runs.")]
+        public bool useSharedVideoTexture = false;
+        [Tooltip("Shared decoded atlas texture, assigned externally when useSharedVideoTexture is true.")]
+        public Texture2D sharedVideoTexture;
+
         // Private streaming state
         private bool _isStreaming = false;
         private bool _isBuffering = false;
@@ -233,7 +239,7 @@ namespace Volograms
             {
                 // --VIDEO TEXTURE--
                 // Always skip video frames to desired frame.
-                if (volFormat == VolEnums.VolFormat.Video)
+                if (volFormat == VolEnums.VolFormat.Video && !useSharedVideoTexture)
                 {
                     ReadVideoFrame(_currentlyLoadedFrameIndex, desiredFrameIndex);
                 }
@@ -397,6 +403,26 @@ namespace Volograms
         private IEnumerator OpenVideoSequence(string volVideoTexture, string volFolder, System.Action<string> onError)
         {
             bool geomOpened = false;
+
+            // Follower path: skip our own video/audio decode entirely, and just open
+            // this object's own geometry against the externally-supplied atlas texture.
+            if (useSharedVideoTexture)
+            {
+                _hasVideoTexture = false; // we own no native video/audio decode to close later
+                _voloTexture = sharedVideoTexture;
+
+                _fullGeomPath = volFolderPathType.ResolvePath(volFolder);
+                string sharedHeaderFile = Path.Combine(_fullGeomPath, "header.vols");
+                string sharedSequenceFile = Path.Combine(_fullGeomPath, "sequence_0.vols");
+                geomOpened = _ctx.OpenGeom(sharedHeaderFile, sharedSequenceFile, true);
+
+                if (!geomOpened)
+                {
+                    onError?.Invoke("Failed to open video sequence vologram (shared-atlas follower).");
+                }
+                yield break;
+            }
+
             _hasVideoTexture = !string.IsNullOrEmpty(volVideoTexture);
             _fullVideoPath = volVideoTexturePathType.ResolvePath(volVideoTexture);
 
