@@ -408,6 +408,10 @@ namespace Volograms
             // this object's own geometry against the externally-supplied atlas texture.
             if (useSharedVideoTexture)
             {
+                // Don't care what order Start()/Open() ran in relative to the driver/
+                // controller -- just wait until the shared texture reference exists.
+                yield return new WaitUntil(() => sharedVideoTexture != null);
+
                 _hasVideoTexture = false; // we own no native video/audio decode to close later
                 _voloTexture = sharedVideoTexture;
 
