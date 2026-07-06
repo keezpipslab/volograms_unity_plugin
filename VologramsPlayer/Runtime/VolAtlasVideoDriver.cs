@@ -120,24 +120,45 @@ public class VolAtlasVideoDriver : MonoBehaviour
         {
             if (isLooping)
             {
-                _accumulatedSeconds = 0.0;
-                _currentFrameIndex = -1;
-                desiredFrameIndex = 0;
-                // Note: the audio VideoPlayer above loops on its own timeline via
-                // isLooping; since both started together off the same fullPath and
-                // fps, they stay close, but for long sessions consider periodically
-                // resyncing _accumulatedSeconds to _audioPlayer.time if drift shows up.
+                RestartVideo();
             }
-            else
-            {
-                return; // hold last frame
-            }
+            return;
         }
 
         if (desiredFrameIndex == _currentFrameIndex) return;
 
+        // Cap how many frames we'll decode in a single Update to catch up. If
+        // decoding is slower than realtime, blindly chasing desiredFrameIndex
+        // compounds the problem (falls further behind -> more catch-up frames
+        // -> slower still). Better to drop frames than spiral.
+        const int maxFramesPerUpdate = 4;
+        if (desiredFrameIndex - _currentFrameIndex > maxFramesPerUpdate)
+        {
+            desiredFrameIndex = _currentFrameIndex + maxFramesPerUpdate;
+        }
+
         ReadVideoFrame(_currentFrameIndex, desiredFrameIndex);
         _currentFrameIndex = desiredFrameIndex;
+    }
+
+    // Mirrors VolPlayer.Restart()'s pattern: the native decoder is forward-only,
+    // so looping means fully closing and reopening the decode session, not just
+    // resetting a frame counter.
+    private void RestartVideo()
+    {
+        _ctx.CloseVideo();
+
+        string fullPath = atlasVideoPathType.ResolvePath(atlasVideoFile);
+        bool reopened = _ctx.OpenVideo(fullPath);
+        if (!reopened)
+        {
+            Debug.LogError("[VolAtlasVideoDriver] Failed to reopen atlas video on loop: " + fullPath);
+            _isOpen = false;
+            return;
+        }
+
+        _currentFrameIndex = -1;
+        _accumulatedSeconds = 0.0;
     }
 
     // Same skip-ahead pattern VolPlayer.ReadVideoFrame uses internally.
