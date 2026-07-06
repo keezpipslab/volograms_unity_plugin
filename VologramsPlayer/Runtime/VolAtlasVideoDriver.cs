@@ -4,39 +4,48 @@
 // resulting Texture2D publicly so multiple VolPlayer "followers" (with
 // useSharedVideoTexture = true) can all read from it.
 //
-// Also owns a single audio-only Unity VideoPlayer (renderMode = APIOnly,
-// audioOutputMode = Direct) that plays the SAME atlas mp4's audio track --
-// this is the one place audio comes from for the whole group, mirroring
-// how VolPlayer normally handles audio for a single vologram.
+// Audio comes from a plain AudioSource playing a SEPARATELY EXTRACTED audio
+// file (see setup note below) -- NOT from a Unity VideoPlayer. A VideoPlayer,
+// even in APIOnly render mode, still fully decodes the video internally to
+// stay in sync -- meaning it would decode this same video a second time,
+// competing with the native decode above for the same hardware decoder.
+// Confirmed on Quest: this caused a large slowdown, resolved by removing it.
+//
+// SETUP: extract the atlas mp4's audio track once, offline:
+//   ffmpeg -i atlas.mp4 -vn -acodec pcm_s16le atlas_audio.wav
+// then import that file into Unity as a normal AudioClip asset and assign it
+// to `audioClip` below.
 //
 // This does NOT touch geometry at all -- geometry stays per-object in
 // each follower's own VolPlayer, driven independently.
 
 using System;
 using UnityEngine;
-using UnityEngine.Video;
 using Volograms;
 
+[RequireComponent(typeof(AudioSource))]
 public class VolAtlasVideoDriver : MonoBehaviour
 {
     [Header("Atlas video path")]
     public VolEnums.PathType atlasVideoPathType;
     public string atlasVideoFile;
 
-    [Header("Streaming Assets Extraction (optional)")]
-    [Tooltip("If assigned, opening waits until this extractor has finished copying files to persistentDataPath. Leave null if you're not using extraction (e.g. reading directly from an already-real folder).")]
-    public VolStreamingAssetsExtractor extractor;
-
     [Header("Playback")]
     public bool isLooping = true;
     public bool audioOn = true;
+    [Tooltip("The atlas video's audio track, extracted separately (see file header) and imported as a normal Unity AudioClip asset.")]
+    public AudioClip audioClip;
+
+    [Header("Streaming Assets Extraction (optional)")]
+    [Tooltip("If assigned, opening waits until this extractor has finished copying files to persistentDataPath. Leave null if you're not using extraction (e.g. reading directly from an already-real folder).")]
+    public VolStreamingAssetsExtractor extractor;
 
     public Texture2D AtlasTexture { get; private set; }
     public bool IsReady { get; private set; }
     public double FrameRate => _framesPerSecond;
 
     private VolPluginInterface.VolNativeContext _ctx;
-    private VideoPlayer _audioPlayer;
+    private AudioSource _audioSource;
     private int _currentFrameIndex = -1;
     private long _numFrames;
     private double _framesPerSecond;
@@ -78,35 +87,17 @@ public class VolAtlasVideoDriver : MonoBehaviour
         _isOpen = true;
         IsReady = true; // texture + dimensions exist now; pixel data fills in on first Update
 
-        if (audioOn)
+        if (audioOn && audioClip != null)
         {
-            StartCoroutine(SetUpAudio(fullPath));
+            if (!TryGetComponent(out _audioSource))
+            {
+                _audioSource = gameObject.AddComponent<AudioSource>();
+            }
+            _audioSource.clip = audioClip;
+            _audioSource.loop = isLooping;
+            _audioSource.playOnAwake = false;
+            _audioSource.Play();
         }
-    }
-
-    private System.Collections.IEnumerator SetUpAudio(string fullPath)
-    {
-        if (!TryGetComponent(out _audioPlayer))
-        {
-            _audioPlayer = gameObject.AddComponent<VideoPlayer>();
-        }
-
-        _audioPlayer.Stop();
-        _audioPlayer.source = VideoSource.Url;
-        _audioPlayer.url = fullPath;
-        _audioPlayer.renderMode = VideoRenderMode.APIOnly; // we never read its video frames
-        _audioPlayer.audioOutputMode = VideoAudioOutputMode.Direct;
-        _audioPlayer.EnableAudioTrack(0, true);
-        _audioPlayer.SetDirectAudioVolume(0, 1f);
-        _audioPlayer.SetDirectAudioMute(0, false);
-        _audioPlayer.controlledAudioTrackCount = 1;
-        _audioPlayer.isLooping = isLooping;
-        _audioPlayer.errorReceived += (source, message) =>
-            Debug.LogError("[VolAtlasVideoDriver] Audio VideoPlayer error: " + message);
-
-        _audioPlayer.Prepare();
-        yield return new WaitUntil(() => _audioPlayer.isPrepared);
-        _audioPlayer.Play();
     }
 
     void Update()
